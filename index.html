@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Friends Tournament Bracket</title>
+<meta name="theme-color" content="#e4002b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Tournament">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+/* VOICE: loud, playful couch-tournament energy, but tidy enough to run a night with
+   IDEA: a fighting-game versus screen: slanted name plates clashing in the middle
+   PICTURE: the league table and bracket themselves, slanted plates per player, winner glows
+   COLOUR and TYPE: hot red field, ink navy, sharp yellow accent; Anton titles, Barlow body
+   LAYOUT: red header band, setup (register + roster + format), league band, bracket band, champion */
+:root{color-scheme:light dark;
+--bg:light-dark(#f6f3ee,#120d1c);--card:light-dark(#fff,#1d1629);--ink:light-dark(#141127,#f3eff8);
+--soft:light-dark(#5f5a70,#a9a2b8);--line:light-dark(#e2dcd2,#33294a);
+--red:#e4002b;--red2:light-dark(#b80023,#ff3355);--yel:#ffd500;--navy:#141127}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Barlow,system-ui,sans-serif;overflow-x:clip}
+.band{padding:clamp(24px,4vw,56px) max(5vw,16px)}
+.wrap{max-width:1240px;margin:0 auto}
+header{background:var(--red);color:#fff;position:relative;overflow:hidden}
+header::after{content:"";position:absolute;right:-6%;top:0;bottom:0;width:38%;background:var(--navy);transform:skewX(-18deg);transform-origin:top}
+header .wrap{position:relative;z-index:1;display:flex;gap:16px 32px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.title{font:400 clamp(34px,6vw,56px)/1.05 Anton,Impact,sans-serif;background:none;border:0;color:#fff;padding:4px 0;width:min(100%,640px);border-bottom:2px dashed rgba(255,255,255,.4);letter-spacing:.5px}
+.title:focus{outline:none;border-bottom-color:var(--yel)}
+.hint{font-size:14px;opacity:.85;margin:4px 0 0}
+.count{text-align:center;color:#fff}
+.count b{display:block;font:400 clamp(44px,7vw,72px)/1 Anton,Impact,sans-serif;color:var(--yel)}
+.count span{font-size:14px;font-weight:600}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px;align-items:start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+h2{font:400 28px/1.1 Anton,Impact,sans-serif;margin:0 0 14px;letter-spacing:.3px}
+label{display:block;font-weight:700;font-size:14px;margin:12px 0 6px}
+input[type=text],select{width:100%;font:16px Barlow,sans-serif;padding:11px 12px;border-radius:10px;border:2px solid var(--line);background:var(--bg);color:var(--ink);min-height:46px}
+input[type=text]:focus,select:focus{outline:none;border-color:var(--red2)}
+button{font:700 16px Barlow,sans-serif;min-height:44px;padding:0 18px;border-radius:10px;border:0;cursor:pointer;background:var(--line);color:var(--ink)}
+button:focus-visible,.fmt:focus-within{outline:3px solid var(--yel);outline-offset:2px}
+button:disabled{cursor:default}
+.primary{background:var(--red);color:#fff;width:100%;margin-top:16px;font-size:17px}
+.primary:hover{background:var(--red2)}
+.go{background:var(--yel);color:var(--navy);font-size:18px;padding:0 26px}
+.go:disabled{opacity:.5}
+.ghost{background:transparent;border:2px solid var(--line)}
+.err{color:var(--red2);font-size:14px;font-weight:600;min-height:20px;margin:8px 0 0}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.roster{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.roster li{display:flex;align-items:center;gap:12px;padding:8px 8px 8px 0;border-bottom:1px solid var(--line)}
+.seed{flex:none;width:38px;height:38px;display:grid;place-items:center;background:var(--navy);color:var(--yel);font:400 18px Anton,sans-serif;transform:skewX(-12deg);border-radius:4px}
+.who{flex:1}.who b{display:block;font-size:17px;line-height:1.2;overflow-wrap:anywhere}.who small{color:var(--soft);font-size:14px}
+.icon{min-height:40px;min-width:40px;padding:0;background:transparent;color:var(--soft);font-size:20px;border-radius:8px}
+.icon:hover{background:var(--line);color:var(--ink)}
+.empty{color:var(--soft);padding:22px 0;text-align:center}
+.tools{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+.note{font-size:13px;color:var(--soft);margin:12px 0 0}
+.formats{border:0;padding:0;margin:22px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.formats legend{font:400 22px Anton,sans-serif;margin-bottom:10px;padding:0}
+.fmt{position:relative;display:block;margin:0;padding:14px;border:2px solid var(--line);border-radius:12px;cursor:pointer;font-weight:400}
+.fmt input{position:absolute;opacity:0}
+.fmt b{display:block;font-size:16px;margin-bottom:2px}
+.fmt small{display:block;color:var(--soft);font-size:14px;line-height:1.4}
+.fmt:has(input:checked){border-color:var(--red);background:color-mix(in srgb,var(--red) 8%,transparent)}
+.fmt:has(input:checked) b{color:var(--red2)}
+.fmt:has(input:disabled){opacity:.45;cursor:default}
+.adv{display:none;margin-top:4px}.adv.on{display:block}
+.adv select{max-width:220px}
+.est{font-size:14px;color:var(--soft);margin:12px 0 0}
+.dark{background:var(--navy);color:#fff}
+.dark+.dark{border-top:4px solid var(--red)}
+.dark h2{color:#fff}
+.btools{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.btools p{margin:0;color:#c9c3d6;font-size:15px}
+.dark .ghost{color:#fff;border-color:#3d3456}
+.scroll{overflow-x:auto;padding-bottom:10px}
+.bracket{display:flex;gap:28px;min-width:max-content}
+.round{display:flex;flex-direction:column;width:230px}
+.round h3,.rr h3{font:600 14px Barlow,sans-serif;color:var(--yel);margin:0 0 10px}
+.round h3{text-align:center}
+.matches{flex:1;display:flex;flex-direction:column;justify-content:space-around;gap:14px}
+.match{display:grid;gap:4px}
+.p{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:44px;padding:0 14px;background:#2a2340;color:#fff;border-radius:6px;transform:skewX(-10deg);text-align:left;font-weight:600;border:2px solid transparent}
+.p>span{transform:skewX(10deg);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p small{color:#a9a2b8;font-weight:400;margin-left:6px}
+.p:not([disabled]):hover{border-color:var(--yel)}
+.p.tbd{background:transparent;border:2px dashed #3d3456;color:#7d7590}
+.p.win{background:var(--red);border-color:var(--yel)}
+.p.win::after{content:"✓";transform:skewX(10deg);color:var(--yel);margin-left:6px}
+.p.lose{opacity:.45}
+.p.bye{background:transparent;color:#6d6582;font-style:italic}
+.league{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px;align-items:start}
+.rounds{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:20px}
+.pair{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);gap:6px;align-items:center;margin-bottom:8px}
+.pair .p{padding:0 10px}
+.v{font:400 14px Anton,sans-serif;color:var(--yel)}
+.sit{margin:0 0 8px;color:#8f88a3;font-size:14px;font-style:italic}
+.table{background:#1d1733;border-radius:12px;padding:16px}
+table{width:100%;border-collapse:collapse}
+th{font-size:13px;color:#a9a2b8;font-weight:600;text-align:right;padding:6px 8px;border-bottom:1px solid #3d3456}
+th:nth-child(2){text-align:left}
+td{padding:10px 8px;border-bottom:1px solid #2a2340;text-align:right;font-variant-numeric:tabular-nums}
+td:nth-child(2){text-align:left;font-weight:600;overflow-wrap:anywhere}
+td:first-child{color:#a9a2b8;width:2.2em}
+tr.in td:first-child{color:var(--yel);font-weight:700}
+tr.cut td{border-bottom:2px dashed var(--yel)}
+.tag-in{font-size:12px;background:var(--yel);color:var(--navy);border-radius:4px;padding:1px 6px;margin-left:8px;font-weight:700;white-space:nowrap}
+.prog{height:8px;background:#2a2340;border-radius:4px;overflow:hidden;margin:10px 0 6px}
+.prog i{display:block;height:100%;background:var(--yel)}
+.progtxt{font-size:14px;color:#c9c3d6;margin:0}
+.champ-band{background:var(--yel);color:var(--navy);text-align:center}
+.champ-band small{font-weight:700;font-size:15px}
+.champ-band b{display:block;font:400 clamp(40px,8vw,80px)/1.05 Anton,sans-serif;overflow-wrap:anywhere;animation:pop .5s ease-out}
+@keyframes pop{from{transform:scale(.85);opacity:0}}
+@media(prefers-reduced-motion:reduce){.champ-band b{animation:none}}
+.locked{display:none;background:var(--yel);color:var(--navy);padding:10px 14px;border-radius:10px;font-weight:600;font-size:15px;margin-top:12px}
+.started .locked{display:block}
+.started #addForm input,.started #addForm .primary{opacity:.5;pointer-events:none}
+@media(max-width:900px){.league{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:820px){.grid{grid-template-columns:minmax(0,1fr)}header::after{width:30%;right:-14%}}
+@media(max-width:600px){.round{width:200px}.count{text-align:left}.formats{grid-template-columns:minmax(0,1fr)}}
+</style>
+</head>
+<body>
+<header class="band">
+  <div class="wrap">
+    <div>
+      <input class="title" id="tName" type="text" value="Friday Night Brawl" aria-label="Tournament name">
+      <p class="hint">Tap the name to rename your tournament.</p>
+    </div>
+    <div class="count"><b id="pCount">0</b><span>players registered</span></div>
+  </div>
+</header>
+
+<main class="band">
+  <div class="wrap grid">
+    <section class="panel">
+      <h2>Register a player</h2>
+      <form id="addForm" autocomplete="off">
+        <label for="tag">Gamer tag</label>
+        <input type="text" id="tag" maxlength="24" placeholder="e.g. Kevin">
+        <label for="mainChar">Main character <span style="font-weight:400;color:var(--soft)">(optional)</span></label>
+        <input type="text" id="mainChar" maxlength="24" placeholder="Who do they play?">
+        <button class="primary" type="submit">Add player</button>
+        <p class="err" id="err" role="alert"></p>
+      </form>
+      <div class="locked">The tournament has started. Reset it to change players or format.</div>
+    </section>
+
+    <section class="panel">
+      <div class="tools">
+        <h2 style="margin:0">Roster</h2>
+        <div class="row">
+          <button class="ghost" id="shuffle" type="button">Shuffle seeds</button>
+          <button class="ghost" id="clear" type="button">Clear all</button>
+        </div>
+      </div>
+      <ul class="roster" id="roster"></ul>
+      <p class="note">Seed 1 faces the lowest seed in a bracket. Use the arrows to reorder.</p>
+
+      <fieldset class="formats" id="formats">
+        <legend>Format</legend>
+        <label class="fmt"><input type="radio" name="fmt" value="bracket"><b>Bracket</b><small>Knockout. Lose once and you're out.</small></label>
+        <label class="fmt"><input type="radio" name="fmt" value="league"><b>Everyone plays everyone</b><small>Most wins takes the title.</small></label>
+        <label class="fmt"><input type="radio" name="fmt" value="combo"><b>League + playoffs</b><small>Everyone plays everyone, then the top players go to a bracket.</small></label>
+      </fieldset>
+      <div class="adv" id="advWrap">
+        <label for="adv">Players who make the playoffs</label>
+        <select id="adv"></select>
+      </div>
+      <p class="est" id="est"></p>
+      <div class="row" style="margin-top:14px">
+        <button class="go" id="start" type="button">Start tournament</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<section class="band dark" id="leagueBand" hidden>
+  <div class="wrap">
+    <div class="btools">
+      <div><h2 style="margin:0 0 4px">League</h2><p id="leagueHint">Tap a player to mark them the winner. Tap again to undo.</p></div>
+      <button class="ghost" id="resetL" type="button" data-reset>Reset tournament</button>
+    </div>
+    <div class="league">
+      <div class="rounds" id="rounds"></div>
+      <div class="table">
+        <h3 style="font:400 22px Anton,sans-serif;margin:0 0 6px">Standings</h3>
+        <table><thead><tr><th>#</th><th>Player</th><th>W</th><th>L</th></tr></thead><tbody id="stand"></tbody></table>
+        <div class="prog"><i id="progBar"></i></div>
+        <p class="progtxt" id="progTxt"></p>
+        <div class="row" style="margin-top:14px"><button class="go" id="toPlayoffs" type="button" hidden>Start playoffs</button></div>
+        <p class="note" style="color:#a9a2b8">Ties are broken by head-to-head wins, then by seed.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="band dark" id="bracketBand" hidden>
+  <div class="wrap">
+    <div class="btools">
+      <div><h2 style="margin:0 0 4px" id="bTitle">Bracket</h2><p>Tap a player to mark them the winner. Tap again to undo.</p></div>
+      <div class="row">
+        <button class="ghost" id="backL" type="button" hidden>Back to league</button>
+        <button class="ghost" id="resetB" type="button" data-reset>Reset tournament</button>
+      </div>
+    </div>
+    <div class="scroll"><div class="bracket" id="bracket"></div></div>
+  </div>
+</section>
+
+<section class="band champ-band" id="champBand" hidden>
+  <small>Champion</small><b id="champName"></b>
+</section>
+
+<script>
+{
+const KEY = 'friends-bracket-v1';
+let S = {name:'Friday Night Brawl', players:[], format:'bracket', advance:4, stage:'setup', rr:[], rrWins:{}, size:0, slots:[], wins:{}};
+try {
+  const saved = JSON.parse(localStorage.getItem(KEY));
+  if (saved && saved.players) {
+    S = Object.assign(S, saved);
+    if (!saved.stage) S.stage = saved.started ? 'bracket' : 'setup';
+  }
+} catch(e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} };
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const byId = id => S.players.find(p => p.id === id);
+const twoStep = (btn, label, fn) => {
+  let armed = false;
+  btn.addEventListener('click', () => {
+    if (!armed){ armed = true; btn.textContent = 'Tap again to confirm'; setTimeout(() => { armed = false; btn.textContent = label; }, 3000); return; }
+    armed = false; btn.textContent = label; fn();
+  });
+};
+
+/* ---------- Bracket engine ---------- */
+function seedOrder(size){
+  let s = [1];
+  while (s.length < size){ const n = s.length*2 + 1; s = s.flatMap(x => [x, n - x]); }
+  return s;
+}
+function buildBracket(ids){
+  const n = ids.length; let size = 2; while (size < n) size *= 2;
+  S.size = size;
+  S.slots = seedOrder(size).map(seed => seed <= n ? ids[seed-1] : null);
+  S.wins = {};
+}
+function compute(){
+  const rounds = []; let prev = [];
+  for (let i = 0; i < S.size/2; i++) prev.push({a:S.slots[2*i], b:S.slots[2*i+1]});
+  let r = 0;
+  while (true){
+    prev.forEach((m, i) => {
+      const k = r + '-' + i, w = S.wins[k];
+      if (m.a === undefined || m.b === undefined) m.w = undefined;
+      else if (m.a === null && m.b === null) m.w = null;
+      else if (m.a === null) m.w = m.b;
+      else if (m.b === null) m.w = m.a;
+      else m.w = (w === m.a || w === m.b) ? w : undefined;
+      if (!(m.a && m.b) || m.w === undefined) delete S.wins[k];
+    });
+    rounds.push(prev);
+    if (prev.length === 1) break;
+    const next = [];
+    for (let i = 0; i < prev.length; i += 2) next.push({a:prev[i].w, b:prev[i+1].w});
+    prev = next; r++;
+  }
+  return rounds;
+}
+function roundName(r, total){
+  const left = total - r;
+  if (left === 1) return 'Final';
+  if (left === 2) return 'Semifinals';
+  if (left === 3) return 'Quarterfinals';
+  return 'Round ' + (r + 1);
+}
+
+/* ---------- League engine ---------- */
+function schedule(ids){
+  let a = [...ids]; if (a.length % 2) a.push(null);
+  const n = a.length, rounds = [];
+  for (let r = 0; r < n - 1; r++){
+    const pairs = [];
+    for (let i = 0; i < n/2; i++) pairs.push([a[i], a[n-1-i]]);
+    rounds.push(pairs);
+    a = [a[0], a[n-1], ...a.slice(1, n-1)];
+  }
+  return rounds;
+}
+function rrMatches(){
+  const out = [];
+  S.rr.forEach((pairs, r) => pairs.forEach((pr, i) => { if (pr[0] && pr[1]) out.push({k:r+'-'+i, a:pr[0], b:pr[1], w:S.rrWins[r+'-'+i]}); }));
+  return out;
+}
+function standings(){
+  const ms = rrMatches(), rec = {}, beat = {};
+  S.players.forEach((p, i) => { rec[p.id] = {id:p.id, w:0, l:0, seed:i}; beat[p.id] = {}; });
+  ms.forEach(m => { if (!m.w) return; const l = m.w === m.a ? m.b : m.a; rec[m.w].w++; rec[l].l++; beat[m.w][l] = 1; });
+  const rows = Object.values(rec).sort((x, y) => y.w - x.w || x.seed - y.seed);
+  const out = [];
+  for (let i = 0; i < rows.length;){
+    let j = i; while (j < rows.length && rows[j].w === rows[i].w) j++;
+    const grp = rows.slice(i, j), ids = grp.map(g => g.id);
+    grp.forEach(g => g.h2h = ids.reduce((s, o) => s + (beat[g.id][o] || 0), 0));
+    grp.sort((x, y) => y.h2h - x.h2h || x.seed - y.seed);
+    out.push(...grp); i = j;
+  }
+  return {rows: out, played: ms.filter(m => m.w).length, total: ms.length};
+}
+
+/* ---------- Rendering ---------- */
+const plate = (id, cls, attrs) => {
+  const p = byId(id);
+  return `<button class="p ${cls}" ${attrs}><span>${esc(p.tag)}${p.main ? `<small>${esc(p.main)}</small>` : ''}</span></button>`;
+};
+
+function renderSetup(){
+  const n = S.players.length, lock = S.stage !== 'setup';
+  document.body.classList.toggle('started', lock);
+  $('pCount').textContent = n;
+  $('roster').innerHTML = n ? S.players.map((p, i) => `
+    <li><span class="seed">${i+1}</span>
+      <span class="who"><b>${esc(p.tag)}</b>${p.main ? `<small>${esc(p.main)}</small>` : ''}</span>
+      ${lock ? '' : `<button class="icon" data-act="up" data-i="${i}" aria-label="Move ${esc(p.tag)} up" ${i===0?'disabled':''}>↑</button>
+      <button class="icon" data-act="down" data-i="${i}" aria-label="Move ${esc(p.tag)} down" ${i===n-1?'disabled':''}>↓</button>
+      <button class="icon" data-act="del" data-i="${i}" aria-label="Remove ${esc(p.tag)}">×</button>`}
+    </li>`).join('') : `<li class="empty">No players yet. Add your first one on the left.</li>`;
+  $('shuffle').disabled = $('clear').disabled = lock;
+
+  document.querySelectorAll('input[name=fmt]').forEach(r => {
+    r.checked = r.value === S.format;
+    r.disabled = lock || (r.value === 'combo' && n > 0 && n < 3);
+  });
+  if (S.format === 'combo' && n > 0 && n < 3 && !lock) S.format = 'bracket', document.querySelector('input[value=bracket]').checked = true;
+
+  const opts = [2,3,4,6,8,16].filter(v => v < Math.max(n, 3));
+  if (!opts.includes(+S.advance)) S.advance = opts.includes(4) ? 4 : opts[opts.length-1] || 2;
+  $('adv').innerHTML = opts.map(v => `<option value="${v}" ${v == S.advance ? 'selected' : ''}>Top ${v}</option>`).join('');
+  $('adv').disabled = lock;
+  $('advWrap').classList.toggle('on', S.format === 'combo');
+
+  const league = n * (n - 1) / 2, k = +S.advance;
+  $('est').textContent = n < 2 ? 'Add at least 2 players to start.' :
+    S.format === 'bracket' ? `${n} players: ${n - 1} matches.` :
+    S.format === 'league' ? `${n} players: ${league} matches, everyone plays ${n - 1}.` :
+    `${n} players: ${league} league matches, then ${k - 1} playoff matches.`;
+  $('start').disabled = lock || n < 2;
+}
+
+function renderLeague(){
+  const show = S.format !== 'bracket' && S.stage !== 'setup';
+  $('leagueBand').hidden = !show;
+  if (!show) return null;
+  const locked = S.stage === 'playoffs';
+  $('rounds').innerHTML = S.rr.map((pairs, r) => `<div class="rr"><h3>Round ${r + 1}</h3>${pairs.map((pr, i) => {
+    if (!pr[0] || !pr[1]) return `<p class="sit">${esc(byId(pr[0] || pr[1]).tag)} sits out</p>`;
+    const k = r + '-' + i, w = S.rrWins[k];
+    const c = id => w ? (w === id ? 'win' : 'lose') : '';
+    const at = id => `data-rk="${k}" data-id="${id}" ${locked ? 'disabled' : ''}`;
+    return `<div class="pair">${plate(pr[0], c(pr[0]), at(pr[0]))}<span class="v">vs</span>${plate(pr[1], c(pr[1]), at(pr[1]))}</div>`;
+  }).join('')}</div>`).join('');
+
+  const st = standings(), combo = S.format === 'combo', k = +S.advance;
+  $('stand').innerHTML = st.rows.map((r, i) => `<tr class="${combo && i < k ? 'in' : ''} ${combo && i === k - 1 ? 'cut' : ''}">
+    <td>${i + 1}</td><td>${esc(byId(r.id).tag)}${combo && i < k && st.played === st.total ? '<span class="tag-in">Playoffs</span>' : ''}</td><td>${r.w}</td><td>${r.l}</td></tr>`).join('');
+  $('progBar').style.width = (st.total ? st.played / st.total * 100 : 0) + '%';
+  const done = st.played === st.total;
+  $('progTxt').textContent = done ? (combo ? 'League finished.' : 'All matches played.') : `${st.played} of ${st.total} matches played`;
+  $('toPlayoffs').hidden = !combo || locked;
+  $('toPlayoffs').disabled = !done;
+  $('toPlayoffs').textContent = done ? `Start playoffs (top ${k})` : `Playoffs unlock when the league is done`;
+  $('leagueHint').textContent = locked ? 'League is locked while the playoffs run.' : 'Tap a player to mark them the winner. Tap again to undo.';
+  return S.format === 'league' && done ? st.rows[0].id : null;
+}
+
+function renderBracket(){
+  const show = S.stage === 'bracket' || S.stage === 'playoffs';
+  $('bracketBand').hidden = !show;
+  if (!show) return null;
+  $('bTitle').textContent = S.stage === 'playoffs' ? 'Playoffs' : 'Bracket';
+  $('backL').hidden = S.stage !== 'playoffs';
+  const rounds = compute();
+  $('bracket').innerHTML = rounds.map((ms, r) => `
+    <div class="round"><h3>${roundName(r, rounds.length)}</h3><div class="matches">
+      ${ms.map((m, i) => `<div class="match">${[m.a, m.b].map(id => {
+        if (id === undefined) return `<button class="p tbd" disabled><span>Waiting…</span></button>`;
+        if (id === null) return `<button class="p bye" disabled><span>Bye</span></button>`;
+        const cls = m.w === undefined ? '' : (m.w === id ? 'win' : 'lose');
+        return plate(id, cls, `data-k="${r}-${i}" data-id="${id}" ${m.a && m.b ? '' : 'disabled'}`);
+      }).join('')}</div>`).join('')}
+    </div></div>`).join('');
+  return rounds[rounds.length - 1][0].w || null;
+}
+
+function render(){
+  renderSetup();
+  const champ = renderLeague() || renderBracket();
+  $('champBand').hidden = !champ;
+  $('champName').textContent = champ ? byId(champ).tag : '';
+  save();
+}
+
+/* ---------- Events ---------- */
+$('tName').value = S.name;
+$('tName').addEventListener('input', e => { S.name = e.target.value; save(); });
+
+$('addForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const tag = $('tag').value.trim(), main = $('mainChar').value.trim();
+  if (!tag){ $('err').textContent = 'Enter a gamer tag first.'; return; }
+  if (S.players.some(p => p.tag.toLowerCase() === tag.toLowerCase())){ $('err').textContent = `${tag} is already registered.`; return; }
+  $('err').textContent = '';
+  S.players.push({id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), tag, main});
+  $('tag').value = ''; $('mainChar').value = ''; $('tag').focus();
+  render();
+});
+
+$('roster').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act]'); if (!b) return;
+  const i = +b.dataset.i, P = S.players;
+  if (b.dataset.act === 'del') P.splice(i, 1);
+  if (b.dataset.act === 'up' && i > 0) [P[i-1], P[i]] = [P[i], P[i-1]];
+  if (b.dataset.act === 'down' && i < P.length - 1) [P[i+1], P[i]] = [P[i], P[i+1]];
+  render();
+});
+
+$('shuffle').addEventListener('click', () => {
+  const P = S.players;
+  for (let i = P.length - 1; i > 0; i--){ const j = Math.floor(Math.random() * (i + 1)); [P[i], P[j]] = [P[j], P[i]]; }
+  render();
+});
+twoStep($('clear'), 'Clear all', () => { S.players = []; render(); });
+
+$('formats').addEventListener('change', e => { if (e.target.name === 'fmt'){ S.format = e.target.value; render(); } });
+$('adv').addEventListener('change', e => { S.advance = +e.target.value; render(); });
+
+const jump = id => $(id).scrollIntoView({behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'});
+
+$('start').addEventListener('click', () => {
+  if (S.players.length < 2) return;
+  const ids = S.players.map(p => p.id);
+  if (S.format === 'bracket'){ buildBracket(ids); S.stage = 'bracket'; render(); jump('bracketBand'); }
+  else { S.rr = schedule(ids); S.rrWins = {}; S.stage = 'league'; render(); jump('leagueBand'); }
+});
+
+$('toPlayoffs').addEventListener('click', () => {
+  const st = standings(); if (st.played !== st.total) return;
+  buildBracket(st.rows.slice(0, +S.advance).map(r => r.id));
+  S.stage = 'playoffs'; render(); jump('bracketBand');
+});
+twoStep($('backL'), 'Back to league', () => { S.stage = 'league'; S.wins = {}; render(); jump('leagueBand'); });
+
+document.querySelectorAll('[data-reset]').forEach(b => twoStep(b, 'Reset tournament', () => {
+  S.stage = 'setup'; S.rr = []; S.rrWins = {}; S.wins = {}; S.slots = []; render(); window.scrollTo({top: 0});
+}));
+
+$('rounds').addEventListener('click', e => {
+  const b = e.target.closest('.p[data-rk]'); if (!b || b.disabled) return;
+  const k = b.dataset.rk, id = b.dataset.id;
+  if (S.rrWins[k] === id) delete S.rrWins[k]; else S.rrWins[k] = id;
+  render();
+});
+$('bracket').addEventListener('click', e => {
+  const b = e.target.closest('.p[data-k]'); if (!b || b.disabled) return;
+  const k = b.dataset.k, id = b.dataset.id;
+  if (S.wins[k] === id) delete S.wins[k]; else S.wins[k] = id;
+  render();
+});
+
+render();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+}
+</script>
+</body>
+</html>
