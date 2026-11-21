@@ -30,8 +30,8 @@ body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Barlow,system
 header{background:var(--red);color:#fff;position:relative;overflow:hidden}
 header::after{content:"";position:absolute;right:-6%;top:0;bottom:0;width:38%;background:var(--navy);transform:skewX(-18deg);transform-origin:top}
 header .wrap{position:relative;z-index:1;display:flex;gap:16px 32px;align-items:center;justify-content:space-between;flex-wrap:wrap}
-.title{font:400 clamp(34px,6vw,56px)/1.05 Anton,Impact,sans-serif;background:none;border:0;color:#fff;padding:4px 0;width:min(100%,640px);border-bottom:2px dashed rgba(255,255,255,.4);letter-spacing:.5px}
-.title:focus{outline:none;border-bottom-color:var(--yel)}
+input.title[type=text]{font:400 clamp(38px,10vw,96px)/1.05 Anton,Impact,sans-serif;background:none;border:0;border-radius:0;color:#fff;padding:4px 0;min-height:0;width:min(100%,900px);border-bottom:2px dashed rgba(255,255,255,.4);letter-spacing:.5px}
+input.title[type=text]:focus{outline:none;border-bottom-color:var(--yel)}
 .hint{font-size:14px;opacity:.85;margin:4px 0 0}
 .count{text-align:center;color:#fff}
 .count b{display:block;font:400 clamp(44px,7vw,72px)/1 Anton,Impact,sans-serif;color:var(--yel)}
