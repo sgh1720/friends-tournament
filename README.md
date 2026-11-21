@@ -6,6 +6,7 @@ A small web app for running game-night tournaments with friends.
 - Seed manually or shuffle
 - Three formats: **Bracket** (knockout), **Everyone plays everyone** (league), or **League + playoffs**
 - Tap a player to record a win, tap again to undo
+- When a champion is crowned, get a downloadable certificate (PNG) with a trophy, the podium and the full results history
 - Installable on your phone (Add to Home Screen) and works offline
 
 Everything is one static page: no build step, no server. Results are saved in the browser of the device running the tournament.

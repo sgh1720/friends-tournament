@@ -119,6 +119,14 @@ tr.cut td{border-bottom:2px dashed var(--yel)}
 .champ-band b{display:block;font:400 clamp(40px,8vw,80px)/1.05 Anton,sans-serif;overflow-wrap:anywhere;animation:pop .5s ease-out}
 @keyframes pop{from{transform:scale(.85);opacity:0}}
 @media(prefers-reduced-motion:reduce){.champ-band b{animation:none}}
+.cert{margin:28px auto 0;max-width:560px}
+.cert img{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 18px 40px rgba(20,17,39,.35)}
+.cert-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:18px}
+.dl{background:var(--navy);color:var(--yel);font-size:17px;padding:0 24px}
+.dl:hover{background:#2a2340}
+.dl.alt{background:transparent;color:var(--navy);border:2px solid var(--navy)}
+.dl[hidden]{display:none}
+.champ-band button:focus-visible{outline-color:var(--navy)}
 .locked{display:none;background:var(--yel);color:var(--navy);padding:10px 14px;border-radius:10px;font-weight:600;font-size:15px;margin-top:12px}
 .started .locked{display:block}
 .started #addForm input,.started #addForm .primary{opacity:.5;pointer-events:none}
@@ -217,6 +225,13 @@ tr.cut td{border-bottom:2px dashed var(--yel)}
 
 <section class="band champ-band" id="champBand" hidden>
   <small>Champion</small><b id="champName"></b>
+  <div class="cert" id="certWrap" hidden>
+    <img id="certImg" alt="Certificate of victory showing the champion, trophy, podium and full results">
+    <div class="cert-actions">
+      <button class="dl" id="dlCert" type="button">Download certificate</button>
+      <button class="dl alt" id="shareCert" type="button" hidden>Share</button>
+    </div>
+  </div>
 </section>
 
 <script>
@@ -406,12 +421,222 @@ function render(){
   const champ = renderLeague() || renderBracket();
   $('champBand').hidden = !champ;
   $('champName').textContent = champ ? byId(champ).tag : '';
+  if (champ){ if (!S.doneAt) S.doneAt = Date.now(); } else delete S.doneAt;
   save();
+  if (champ) updateCert(); else certKey = '';
 }
+
+/* ---------- Certificate (drawn on a canvas, saved as PNG) ---------- */
+const NAVY = '#141127', RED = '#e4002b', YEL = '#ffd500';
+const TROPHY = [
+  'M176 120h160v56c0 52-36 92-80 92s-80-40-80-92z',
+  'M176 140h-44c0 44 22 74 56 80l6-26c-18-6-28-26-28-54zM336 140h44c0 44-22 74-56 80l-6-26c18-6 28-26 28-54z',
+  'M236 262h40v58h-40z',
+  'M190 320h132l14 56H176z'
+];
+const AN = s => `400 ${s}px Anton, Impact, sans-serif`;
+const BA = w => s => `${w} ${s}px Barlow, system-ui, sans-serif`;
+let certKey = '', certBlob = null, certTimer;
+
+function awardData(){
+  const tag = id => byId(id).tag, all = [], sections = [];
+  let champ = null, runner = null, third = [];
+  if (S.format !== 'bracket'){
+    const st = standings(), ms = rrMatches().filter(m => m.w);
+    const pairs = ms.map(m => { const l = m.w === m.a ? m.b : m.a; all.push({w: m.w, l}); return [tag(m.w), tag(l)]; });
+    sections.push({title: S.format === 'combo' ? 'League standings' : 'Final standings',
+      table: st.rows.map(r => [tag(r.id), r.w, r.l]), cut: S.format === 'combo' ? +S.advance : 0});
+    if (pairs.length <= 40) sections.push({title: 'League results', lines: pairs});
+    if (S.format === 'league'){
+      champ = st.rows[0].id; runner = st.rows[1] ? st.rows[1].id : null; third = st.rows[2] ? [st.rows[2].id] : [];
+    }
+  }
+  if (S.format !== 'league'){
+    const rounds = compute(), n = rounds.length;
+    rounds.forEach((ms, r) => {
+      const lines = ms.filter(m => m.a && m.b && m.w).map(m => { const l = m.w === m.a ? m.b : m.a; all.push({w: m.w, l}); return [tag(m.w), tag(l)]; });
+      if (lines.length) sections.push({title: (S.format === 'combo' ? 'Playoffs: ' : '') + roundName(r, n), lines});
+    });
+    const f = rounds[n - 1][0];
+    champ = f.w; runner = f.a && f.b ? (f.w === f.a ? f.b : f.a) : null;
+    if (n >= 2) third = rounds[n - 2].filter(m => m.a && m.b && m.w).map(m => m.w === m.a ? m.b : m.a);
+  }
+  const p = byId(champ);
+  const fmt = S.format === 'bracket' ? 'Knockout bracket' : S.format === 'league' ? 'Everyone plays everyone' : `League + top ${S.advance} playoffs`;
+  return {
+    name: S.name.trim() || 'Tournament', champ: p.tag, main: p.main || '',
+    record: `${all.filter(m => m.w === champ).length}–${all.filter(m => m.l === champ).length}`,
+    podium: [
+      runner && {label: 'Runner-up', names: [tag(runner)]},
+      third.length && {label: third.length > 1 ? 'Semifinalists' : '3rd place', names: third.map(tag)}
+    ].filter(Boolean),
+    sections, fmt, players: S.players.length, date: S.doneAt || Date.now()
+  };
+}
+
+function clip(x, t, maxW){
+  if (x.measureText(t).width <= maxW) return t;
+  while (t.length > 1 && x.measureText(t + '…').width > maxW) t = t.slice(0, -1);
+  return t + '…';
+}
+function fit(x, t, font, max, maxW, min){
+  let s = max; x.font = font(s);
+  while (s > min && x.measureText(t).width > maxW){ s -= 2; x.font = font(s); }
+  return clip(x, t, maxW);
+}
+
+function drawCert(d){
+  const W = 1200, P = 80, HEAD = 280, SEC0 = 1050;
+  const rowsH = s => s.lines ? Math.ceil(s.lines.length / 2) * 44 : (s.table.length + 1) * 42;
+  const H = SEC0 + d.sections.reduce((t, s) => t + 70 + rowsH(s) + 30, 0) + 110;
+  const c = document.createElement('canvas'); c.width = W; c.height = H;
+  const x = c.getContext('2d');
+  const box = (X, Y, w, h, r, fill) => { x.fillStyle = fill; x.beginPath(); if (x.roundRect) x.roundRect(X, Y, w, h, r); else x.rect(X, Y, w, h); x.fill(); };
+  const spaced = v => { if ('letterSpacing' in x) x.letterSpacing = v + 'px'; };
+  const when = new Date(d.date).toLocaleDateString(undefined, {year: 'numeric', month: 'long', day: 'numeric'});
+
+  // Backdrop: red header with the navy slash, like the app
+  x.fillStyle = NAVY; x.fillRect(0, 0, W, H);
+  x.fillStyle = RED; x.fillRect(0, 0, W, HEAD);
+  x.fillStyle = NAVY; x.beginPath(); x.moveTo(W * .76, 0); x.lineTo(W, 0); x.lineTo(W, HEAD); x.lineTo(W * .76 - HEAD * .32, HEAD); x.closePath(); x.fill();
+  x.fillStyle = YEL; x.fillRect(0, HEAD, W, 8);
+
+  x.textAlign = 'left'; x.fillStyle = '#fff';
+  x.font = BA(700)(22); spaced(4); x.fillText('CERTIFICATE OF VICTORY', P, 100); spaced(0);
+  x.fillText(fit(x, d.name, AN, 84, W * .72 - P - 20, 40), P, 190);
+  x.globalAlpha = .9; x.fillText(fit(x, `${d.fmt} · ${when}`, BA(600), 24, W * .72 - P - 20, 16), P, 238); x.globalAlpha = 1;
+  x.textAlign = 'center'; x.fillStyle = YEL; x.font = AN(84); x.fillText(String(d.players), W - 130, 160);
+  x.fillStyle = '#fff'; x.font = BA(700)(18); spaced(3); x.fillText('PLAYERS', W - 130, 200); spaced(0);
+
+  // Confetti (same pattern every time for the same tournament name)
+  let seed = [...d.name].reduce((a, ch) => (a * 31 + ch.charCodeAt(0)) >>> 0, 7) || 7;
+  const rnd = () => (seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296;
+  for (let i = 0; i < 60; i++){
+    const cx = rnd() * W, cy = HEAD + 30 + rnd() * 540, rot = rnd() * Math.PI, a = .5 + rnd() * .45;
+    if (Math.abs(cx - W / 2) < (cy < 590 ? 190 : 420)) continue;
+    x.save(); x.translate(cx, cy); x.rotate(rot); x.globalAlpha = a;
+    x.fillStyle = [RED, YEL, '#ffffff', '#ff3355'][i % 4]; x.fillRect(-10, -4, 20, 8); x.restore();
+  }
+
+  // Trophy with a glow
+  const g = x.createRadialGradient(W / 2, 460, 10, W / 2, 460, 260);
+  g.addColorStop(0, 'rgba(255,213,0,.32)'); g.addColorStop(1, 'rgba(255,213,0,0)');
+  x.fillStyle = g; x.fillRect(W / 2 - 260, 200, 520, 520);
+  const size = 230, s = size / 256;
+  x.save(); x.translate(W / 2 - 256 * s, 340 - 120 * s); x.scale(s, s);
+  const gold = x.createLinearGradient(132, 120, 380, 376);
+  gold.addColorStop(0, '#fff07a'); gold.addColorStop(.5, YEL); gold.addColorStop(1, '#d99a00');
+  x.fillStyle = gold; TROPHY.forEach(p => x.fill(new Path2D(p)));
+  x.fillStyle = NAVY; x.font = AN(64); x.textAlign = 'center'; x.fillText('1', 256, 206);
+  x.restore();
+
+  // Champion
+  x.textAlign = 'center'; x.fillStyle = YEL; x.font = BA(700)(26); spaced(6); x.fillText('CHAMPION', W / 2, 640); spaced(0);
+  x.fillStyle = '#fff'; x.fillText(fit(x, d.champ, AN, 120, W - 2 * P, 48), W / 2, 762);
+  x.fillStyle = '#c9c3d6'; x.fillText(fit(x, [d.main, `Record ${d.record}`].filter(Boolean).join(' · '), BA(600), 26, W - 2 * P, 16), W / 2, 812);
+
+  // Podium cards
+  if (d.podium.length){
+    const n = d.podium.length, gap = 24, cw = (W - 2 * P - gap * (n - 1)) / n;
+    d.podium.forEach((card, i) => {
+      const X = P + i * (cw + gap);
+      box(X, 862, cw, 130, 14, '#221b38'); box(X, 862, 8, 130, 4, i ? '#a9a2b8' : '#d7dbe6');
+      x.textAlign = 'left'; x.fillStyle = YEL; x.font = BA(700)(20); spaced(3); x.fillText(card.label.toUpperCase(), X + 32, 908); spaced(0);
+      x.fillStyle = '#fff'; x.fillText(fit(x, card.names.join(' & '), BA(700), 36, cw - 56, 18), X + 32, 960);
+    });
+  }
+
+  // Full results history
+  let y = SEC0;
+  d.sections.forEach(sec => {
+    x.textAlign = 'left'; x.fillStyle = YEL; x.font = AN(34); x.fillText(sec.title.toUpperCase(), P, y + 36);
+    x.fillStyle = '#3d3456'; x.fillRect(P, y + 52, W - 2 * P, 2);
+    y += 70;
+    if (sec.lines){
+      const cw = (W - 2 * P - 24) / 2;
+      sec.lines.forEach(([w, l], i) => {
+        const X = P + (i % 2) * (cw + 24), Y = y + Math.floor(i / 2) * 44;
+        box(X, Y, cw, 36, 8, '#1f1934');
+        // Share the row's width: a short name leaves its spare room to the other one
+        x.font = BA(400)(20); const def = '  def.  ', dw = x.measureText(def).width, room = cw - 28 - dw;
+        x.font = BA(700)(22); const ww = x.measureText(w).width;
+        x.font = BA(600)(22); const lw = x.measureText(l).width;
+        let wMax = room / 2, lMax = room / 2;
+        if (ww + lw <= room){ wMax = ww; lMax = lw; }
+        else if (ww < room / 2) lMax = room - ww;
+        else if (lw < room / 2) wMax = room - lw;
+        x.font = BA(700)(22); x.fillStyle = '#fff'; const wt = clip(x, w, wMax + .5); x.fillText(wt, X + 14, Y + 25);
+        let cx = X + 14 + x.measureText(wt).width;
+        x.font = BA(400)(20); x.fillStyle = '#8f88a3'; x.fillText(def, cx, Y + 25); cx += dw;
+        x.font = BA(600)(22); x.fillStyle = '#a9a2b8'; x.fillText(clip(x, l, lMax + .5), cx, Y + 25);
+      });
+    } else {
+      const cols = [P + 16, P + 80, W - P - 140, W - P - 30];
+      x.font = BA(600)(18); x.fillStyle = '#a9a2b8';
+      x.fillText('#', cols[0], y + 26); x.fillText('PLAYER', cols[1], y + 26);
+      x.textAlign = 'right'; x.fillText('W', cols[2], y + 26); x.fillText('L', cols[3], y + 26); x.textAlign = 'left';
+      sec.table.forEach(([name, w, l], i) => {
+        const Y = y + 42 * (i + 1);
+        if (i % 2 === 0) box(P, Y, W - 2 * P, 38, 8, '#1f1934');
+        x.font = BA(700)(22); x.fillStyle = (sec.cut ? i < sec.cut : i === 0) ? YEL : '#a9a2b8';
+        x.fillText(String(i + 1), cols[0], Y + 27);
+        x.fillStyle = '#fff'; x.fillText(clip(x, name, cols[2] - cols[1] - 60), cols[1], Y + 27);
+        x.textAlign = 'right'; x.font = BA(600)(22); x.fillText(String(w), cols[2], Y + 27);
+        x.fillStyle = '#a9a2b8'; x.fillText(String(l), cols[3], Y + 27); x.textAlign = 'left';
+        if (sec.cut && i === sec.cut - 1 && i < sec.table.length - 1){
+          x.setLineDash([10, 8]); x.strokeStyle = YEL; x.lineWidth = 2;
+          x.beginPath(); x.moveTo(P, Y + 40); x.lineTo(W - P, Y + 40); x.stroke(); x.setLineDash([]);
+        }
+      });
+    }
+    y += rowsH(sec) + 30;
+  });
+
+  // Footer
+  x.fillStyle = '#3d3456'; x.fillRect(P, H - 100, W - 2 * P, 2);
+  x.textAlign = 'left'; x.fillStyle = '#a9a2b8'; x.font = BA(600)(20); x.fillText(`Awarded ${when}`, P, H - 52);
+  x.textAlign = 'right'; x.fillStyle = YEL; x.font = BA(700)(18); spaced(3); x.fillText('FRIENDS TOURNAMENT BRACKET', W - P, H - 52); spaced(0);
+  return c;
+}
+
+async function updateCert(){
+  if ($('champBand').hidden) return;
+  const d = awardData(), key = JSON.stringify(d);
+  if (key === certKey) return;
+  certKey = key;
+  try { await Promise.all([AN(80), BA(700)(24), BA(600)(24), BA(400)(24)].map(f => document.fonts.load(f))); } catch(e) {}
+  if (key !== certKey) return;
+  drawCert(d).toBlob(b => {
+    if (key !== certKey || !b) return;
+    certBlob = b;
+    const img = $('certImg');
+    if (img.dataset.url) URL.revokeObjectURL(img.dataset.url);
+    img.src = img.dataset.url = URL.createObjectURL(b);
+    $('certWrap').hidden = false;
+  }, 'image/png');
+}
+const certName = () => ((S.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'tournament') + '-certificate.png';
 
 /* ---------- Events ---------- */
 $('tName').value = S.name;
-$('tName').addEventListener('input', e => { S.name = e.target.value; save(); });
+$('tName').addEventListener('input', e => {
+  S.name = e.target.value; save();
+  clearTimeout(certTimer); certTimer = setTimeout(updateCert, 300);
+});
+
+$('dlCert').addEventListener('click', () => {
+  if (!certBlob) return;
+  const a = document.createElement('a');
+  a.href = $('certImg').src; a.download = certName();
+  document.body.appendChild(a); a.click(); a.remove();
+});
+try {
+  $('shareCert').hidden = !(navigator.canShare && navigator.canShare({files: [new File([''], 'x.png', {type: 'image/png'})]}));
+} catch(e) {}
+$('shareCert').addEventListener('click', async () => {
+  if (!certBlob) return;
+  try { await navigator.share({files: [new File([certBlob], certName(), {type: 'image/png'})], title: (S.name || 'Tournament') + ' champion'}); } catch(e) {}
+});
 
 $('addForm').addEventListener('submit', e => {
   e.preventDefault();
